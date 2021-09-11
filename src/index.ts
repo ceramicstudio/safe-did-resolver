@@ -9,28 +9,34 @@ import type {
 } from 'did-resolver'
 import type { CeramicApi } from '@ceramicnetwork/common'
 import { Caip10Link } from '@ceramicnetwork/stream-caip10-link'
-import { ChainId, AccountId, AssetId } from 'caip'
+import { ChainId, AccountId } from 'caip'
 import { DIDDocumentMetadata } from 'did-resolver'
-import { blockAtTime, erc1155OwnersOf, erc721OwnerOf, isWithinLastBlock } from './subgraph-utils'
+import { blockAtTime, isWithinLastBlock } from './subgraph-utils'
 import merge from 'merge-options'
+import { getSafeOwners } from './gnosis-safe'
 
 const DID_LD_JSON = 'application/did+ld+json'
 const DID_JSON = 'application/did+json'
 
-export function didToCaip(id: string): AssetId {
+export function didToCaip(id: string): AccountId {
   const caip = id
-    .replace(/^did:nft:/, '')
+    .replace(/^did:safe:/, '')
     .replace(/\?.+$/, '')
     .replace(/_/g, '/')
-  return new AssetId(AssetId.parse(caip))
+
+  return new AccountId(caip)
 }
 
-async function assetToAccount(
-  asset: AssetId,
+/**
+ * Gets the owners of the safe from Gnosis Safe
+ * @param accountId safe address
+ */
+async function accountIdToAccount(
+  accountId: AccountId,
   timestamp: number | undefined,
   chains: Record<string, ChainConfig | undefined>
 ): Promise<AccountId[]> {
-  const assetChainId = asset.chainId.toString()
+  const assetChainId = accountId.chainId.toString()
   const chain = chains[assetChainId]
   if (!chain) {
     throw new Error(`No chain configuration for ${assetChainId}`)
@@ -49,20 +55,18 @@ async function assetToAccount(
     ercSubgraphUrls = chains[assetChainId].assets
   }
 
-  if (asset.assetName.namespace === 'erc721') {
-    owners = [await erc721OwnerOf(asset, queryBlock, ercSubgraphUrls?.erc721)]
-  } else if (asset.assetName.namespace === 'erc1155') {
-    owners = await erc1155OwnersOf(asset, queryBlock, ercSubgraphUrls?.erc1155)
+  if (accountId.chainId.namespace === 'eip155') {
+    owners = await getSafeOwners(accountId.address)
   } else {
     throw new Error(
-      `Only erc721 and erc1155 namespaces are currently supported. Given: ${asset.assetName.namespace}`
+      `Only eip155 namespace is currently supported. Given: ${accountId.chainId.namespace}`
     )
   }
 
   return owners.slice().map(
     (owner) =>
       new AccountId({
-        chainId: asset.chainId,
+        chainId: accountId.chainId,
         address: owner,
       })
   )
@@ -70,7 +74,7 @@ async function assetToAccount(
 
 /**
  * Creates CAIP-10 links for each account to be used as controllers.
- * Since there may be many owners for a given NFT (only ERC1155 for now),
+ * Since there may be many owners for a given Safe,
  * there can be many controllers of that DID document.
  */
 async function accountsToDids(
@@ -125,16 +129,16 @@ function getVersionTime(query = ''): number {
   return 0 // 0 is falsey
 }
 
-function validateResolverConfig(config: Partial<NftResolverConfig>) {
+function validateResolverConfig(config: Partial<SafeResolverConfig>) {
   if (!config) {
-    throw new Error(`Missing nft-did-resolver config`)
+    throw new Error(`Missing safe-did-resolver config`)
   }
   if (!config.ceramic) {
-    throw new Error('Missing ceramic client in nft-did-resolver config')
+    throw new Error('Missing ceramic client in safe-did-resolver config')
   }
   const chains = config.chains
   if (!chains) {
-    throw new Error('Missing chain parameters in nft-did-resolver config')
+    throw new Error('Missing chain parameters in safe-did-resolver config')
   }
   try {
     Object.entries(config.chains).forEach(([chainId, chainConfig]) => {
@@ -145,7 +149,7 @@ function validateResolverConfig(config: Partial<NftResolverConfig>) {
       })
     })
   } catch (e) {
-    throw new Error(`Invalid config for nft-did-resolver: ${e.message}`)
+    throw new Error(`Invalid config for safe-did-resolver: ${e.message}`)
   }
 }
 
@@ -175,7 +179,7 @@ export type ChainConfig = {
  * }
  * ```
  */
-export type NftResolverConfig = {
+export type SafeResolverConfig = {
   ceramic: CeramicApi
   chains: Record<string, ChainConfig>
 }
@@ -184,11 +188,11 @@ async function resolve(
   did: string,
   methodId: string,
   timestamp: number,
-  config: NftResolverConfig
+  config: SafeResolverConfig
 ): Promise<DIDResolutionResult> {
-  const asset = didToCaip(methodId)
-  // for 1155s, there can be many accounts that own a single asset
-  const owningAccounts = await assetToAccount(asset, timestamp, config.chains)
+  const accountId = didToCaip(methodId)
+
+  const owningAccounts = await accountIdToAccount(accountId, timestamp, config.chains)
   const controllers = await accountsToDids(owningAccounts, timestamp, config.ceramic)
   const metadata: DIDDocumentMetadata = {}
 
@@ -202,20 +206,15 @@ async function resolve(
 }
 
 /**
- * Convert AssetId to did:nft URL, including timestamp, if present.
- * @param assetId - NFT Asset
- * @param timestamp - JS Time as unix timestamp.
+ * Convert AccountId to did:safe URL
+ * @param accountId - Safe Account
  */
-export function caipToDid(assetId: AssetId, timestamp?: number): string {
-  const query = timestamp
-    ? `?versionTime=${new Date(timestamp * 1000).toISOString().split('.')[0] + 'Z'}`
-    : ''
-
-  const id = assetId.toString().replace(/\//g, '_')
-  return `did:nft:${id}${query}`
+export function caipToDid(accountId: AccountId): string {
+  const id = accountId.toString().replace(/\//g, '_')
+  return `did:safe:${id}`
 }
 
-function withDefaultConfig(config: Partial<NftResolverConfig>): NftResolverConfig {
+function withDefaultConfig(config: Partial<SafeResolverConfig>): SafeResolverConfig {
   const defaults = {
     chains: {
       'eip155:1': {
@@ -248,56 +247,42 @@ function withDefaultConfig(config: Partial<NftResolverConfig>): NftResolverConfi
 }
 
 /**
- * Params for `createNftDidUrl` function.
+ * Params for `createSafeDidUrl` function.
  */
-export type NftDidUrlParams = {
+export type SafeDidUrlParams = {
   /**
    * CAIP-10 Chain ID. For example: `eip155:1`
    */
   chainId: string
   /**
-   * Token namespace: `erc721` or `erc1155`
+   * Safe contract address
    */
-  namespace: string,
-  /**
-   * Token contract address
-   */
-  contract: string
-  /**
-   * Token ID
-   */
-  tokenId: string
-  /**
-   * Unix timestamp for `versionTime` DID URL query param. Helps to find NFT owners at particular point in time.
-   */
-  timestamp?: number
+  address: string
 }
 
 /**
- * Convert NFT asset id to NFT DID URL. Can include timestamp (as unix timestamp) if provided.
+ * Convert Safe account id to Safe DID URL
  */
-export function createNftDidUrl(params: NftDidUrlParams): string {
-  if (!['erc721', 'erc1155'].includes(params.namespace)) {
-    throw new Error(`Only erc721 and erc1155 are supported`)
+export function createSafeDidUrl(params: SafeDidUrlParams): string {
+  if (params.chainId.substr(0, params.chainId.indexOf(':')) !== 'eip155') {
+    throw new Error(`Only eip155 are supported`)
   }
   return caipToDid(
-    new AssetId({
+    new AccountId({
       chainId: params.chainId,
-      assetName: `${params.namespace}:${params.contract}`,
-      tokenId: params.tokenId,
-    }),
-    params.timestamp
+      address: params.address,
+    })
   )
 }
 
 export default {
   getResolver: (
-    config: Partial<NftResolverConfig> & Required<{ ceramic: CeramicApi }>
+    config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi }>
   ): ResolverRegistry => {
     config = withDefaultConfig(config)
     validateResolverConfig(config)
     return {
-      nft: async (
+      safe: async (
         did: string,
         parsed: ParsedDID,
         resolver: Resolver,
@@ -306,7 +291,7 @@ export default {
         const contentType = options.accept || DID_JSON
         try {
           const timestamp = getVersionTime(parsed.query)
-          const didResult = await resolve(did, parsed.id, timestamp, config as NftResolverConfig)
+          const didResult = await resolve(did, parsed.id, timestamp, config as SafeResolverConfig)
 
           if (contentType === DID_LD_JSON) {
             didResult.didDocument['@context'] = 'https://w3id.org/did/v1'
