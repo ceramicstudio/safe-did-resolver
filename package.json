@@ -1,6 +1,6 @@
 {
   "name": "safe-did-resolver",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "DID Resolver for the Safe method",
   "keywords": [
     "Ceramic",
@@ -58,8 +58,7 @@
     "jest-environment-ceramic": "^0.13.0",
     "jest-fetch-mock": "^3.0.3",
     "lru_map": "^0.4.1",
-    "prettier": "^2.3.2",
-    "typescript": "^4.3.5"
+    "prettier": "^2.3.2"
   },
   "jest": {
     "automock": false,
