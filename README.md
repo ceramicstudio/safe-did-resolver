@@ -1,7 +1,6 @@
 # Gnosis Safe DID Resolver
 
 > Safe is a DID method that uses the Ceramic network to resolve DID documents for Gnosis Safe
-
 > See [CIP-101](https://github.com/ceramicnetwork/CIP/blob/main/CIPs/CIP-101/CIP-101.md)
 
 ## Getting started
@@ -23,8 +22,20 @@ import Ceramic from '@ceramicnetwork/http-client'
 
 const ceramic = new Ceramic() // connects to localhost:7007 by default
 
+// Create a EthAdapter (can use Ethers or Web3)
+// See Gnosis Safe safe-core-sdk for details (https://github.com/gnosis/safe-core-sdk/tree/main/packages/safe-core-sdk#1-set-up-the-sdk-using-ethers-or-web3)
+// Below example uses Ethers
+const web3Provider = window.ethereum
+const provider = new ethers.providers.Web3Provider(web3Provider)
+const owner1 = provider.getSigner(0)
+const ethAdapter = new EthersAdapter({
+  ethers,
+  signer: owner1,
+})
+
 const config = {
   ceramic,
+  ethAdapter,
 }
 
 // getResolver will return an object with a key/value pair of { 'safe': resolver }
@@ -93,7 +104,7 @@ const accountId = didToCaip(didUrl) // eip155:1/erc721:0x12345678912345678912345
 ## ToDos
 
 - [ ] Support for historical owners retrieval
-- [ ] Support for recursive Safe owners lookup
+      ~~- [ ] Support for recursive Safe owners lookup~~
 
 ## License
 

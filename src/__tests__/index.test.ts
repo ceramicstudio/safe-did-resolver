@@ -5,14 +5,29 @@
 import SafeResolver, { caipToDid, createSafeDidUrl, didToCaip, SafeResolverConfig } from '../index'
 import { ResolverRegistry } from 'did-resolver'
 import { AccountId } from 'caip'
+import { ethers } from 'ethers'
+import { EthersAdapter } from '@gnosis.pm/safe-core-sdk'
+import ganache from 'ganache-core'
+
+const GANACHE_CONF = {
+  seed: '0xd30553e27ba2954e3736dae1342f5495798d4f54012787172048582566938f6f',
+}
 
 describe('Gnosis Safe DID Resolver', () => {
   let config: SafeResolverConfig
   let safeResolver: ResolverRegistry
 
   beforeAll(async () => {
+    const ethRpcProvider = new ethers.providers.Web3Provider(ganache.provider(GANACHE_CONF))
+    const owner1 = ethRpcProvider.getSigner(0)
+    const ethAdapter = new EthersAdapter({
+      ethers,
+      signer: owner1,
+    })
+
     config = {
       ceramic: (global as any).ceramic,
+      ethAdapter: ethAdapter,
     }
 
     safeResolver = SafeResolver.getResolver(config)
@@ -49,7 +64,6 @@ describe('Gnosis Safe DID Resolver', () => {
 
     test('convert did:safe id to caip Account Id', () => {
       const fromInt = didToCaip(url)
-      console.log('fromInt: ', fromInt)
       expect(fromInt).toEqual(new AccountId(AccountId.parse(int)))
     })
   })

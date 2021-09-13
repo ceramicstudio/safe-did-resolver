@@ -11,8 +11,7 @@ import type { CeramicApi } from '@ceramicnetwork/common'
 import { Caip10Link } from '@ceramicnetwork/stream-caip10-link'
 import { AccountId } from 'caip'
 import { DIDDocumentMetadata } from 'did-resolver'
-import Safe, { EthersAdapter } from '@gnosis.pm/safe-core-sdk'
-import { ethers } from 'ethers'
+import Safe, { EthAdapter } from '@gnosis.pm/safe-core-sdk'
 
 const DID_LD_JSON = 'application/did+ld+json'
 const DID_JSON = 'application/did+json'
@@ -30,11 +29,14 @@ export function didToCaip(id: string): AccountId {
  * Gets the owners of the safe from Gnosis Safe
  * @param accountId safe address
  */
-async function accountIdToAccount(accountId: AccountId): Promise<AccountId[]> {
+async function accountIdToAccount(
+  accountId: AccountId,
+  ethAdapter: EthAdapter
+): Promise<AccountId[]> {
   let owners: string[]
 
   if (accountId.chainId.namespace === 'eip155') {
-    owners = await getSafeOwners(accountId.address)
+    owners = await getSafeOwners(accountId.address, ethAdapter)
   } else {
     throw new Error(
       `Only eip155 namespace is currently supported. Given: ${accountId.chainId.namespace}`
@@ -101,6 +103,9 @@ function validateResolverConfig(config: Partial<SafeResolverConfig>) {
   if (!config.ceramic) {
     throw new Error('Missing ceramic client in safe-did-resolver config')
   }
+  if (!config.ethAdapter) {
+    throw new Error('Missing ethAdapter in safe-did-resolver config')
+  }
 }
 
 export type ChainConfig = {
@@ -111,6 +116,7 @@ export type ChainConfig = {
 
 export type SafeResolverConfig = {
   ceramic: CeramicApi
+  ethAdapter: EthAdapter
 }
 
 async function resolve(
@@ -120,7 +126,7 @@ async function resolve(
 ): Promise<DIDResolutionResult> {
   const accountId = didToCaip(methodId)
 
-  const owningAccounts = await accountIdToAccount(accountId)
+  const owningAccounts = await accountIdToAccount(accountId, config.ethAdapter)
   const controllers = await accountsToDids(owningAccounts, config.ceramic)
   const metadata: DIDDocumentMetadata = {}
 
@@ -172,44 +178,25 @@ export function createSafeDidUrl(params: SafeDidUrlParams): string {
 }
 
 /**
- * Create a safe instance from the safe address
+ * Get the owners of a Gnosis Safe
  * @param safeAddress - address from an existing Gnosis Safe
+ * @param ethAdapter - instance of EthAdapter for Gnosis Safe creation
  */
-async function getSafe(safeAddress: string): Promise<Safe> {
-  const web3Provider = (window as any).ethereum
-  const provider = new ethers.providers.Web3Provider(web3Provider)
-  const owner1 = provider.getSigner(0)
-  const ethAdapterOwner = new EthersAdapter({
-    ethers,
-    signer: owner1,
-  })
-
+export async function getSafeOwners(
+  safeAddress: string,
+  ethAdapter: EthAdapter
+): Promise<string[]> {
   const safe = await Safe.create({
-    ethAdapter: ethAdapterOwner,
+    ethAdapter,
     safeAddress,
   })
 
-  return safe
-}
-
-/**
- * Get the owners of a Gnosis Safe
- * @param safeAddress - address from an existing Gnosis Safe
- * @param safe - a Safe instance
- */
-export async function getSafeOwners(safeAddress: string, safe?: Safe): Promise<string[]> {
-  if (!safe) {
-    safe = await getSafe(safeAddress)
-  }
-
-  const owners = await safe.getOwners()
-  // TODO check each owners if it is another safe, then do recursive getOwners()
-  return owners
+  return await safe.getOwners()
 }
 
 export default {
   getResolver: (
-    config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi }>
+    config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi; ethAdapter: EthAdapter }>
   ): ResolverRegistry => {
     validateResolverConfig(config)
     return {

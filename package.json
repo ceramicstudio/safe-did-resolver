@@ -1,13 +1,14 @@
 {
   "name": "safe-did-resolver",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "DID Resolver for the Safe method",
   "keywords": [
     "Ceramic",
     "DID",
     "identity",
     "Data",
-    "Gnosis Safe"
+    "Gnosis",
+    "Safe"
   ],
   "author": "FlyingNobita <iam@flyingnobita.com>",
   "contributors": [],
@@ -54,6 +55,7 @@
     "eslint-config-3box": "^0.2.0",
     "eslint-plugin-jest": "^24.4.0",
     "ethers": "^5.4.3",
+    "ganache-core": "^2.13.2",
     "jest": "^27.0.6",
     "jest-environment-ceramic": "^0.13.0",
     "jest-fetch-mock": "^3.0.3",
