@@ -1,21 +1,20 @@
 {
-  "name": "nft-did-resolver",
-  "version": "0.2.1",
-  "description": "DID Resolver for the NFT method",
+  "name": "safe-did-resolver",
+  "version": "0.0.1",
+  "description": "DID Resolver for the Safe method",
   "keywords": [
     "Ceramic",
     "DID",
     "identity",
-    "Data"
+    "Data",
+    "Gnosis Safe"
   ],
-  "author": "Joel Torstensson <oed3933@gmail.com>",
-  "contributors": [
-    "Mike Roth <mike@manyuses.com>"
-  ],
-  "homepage": "https://github.com/ceramicnetwork/nft-did-resolver",
+  "author": "FlyingNobita <iam@flyingnobita.com>",
+  "contributors": [],
+  "homepage": "https://github.com/flyingnobita/safe-did-resolver",
   "repository": {
     "type": "git",
-    "url": "git://github.com/ceramicnetwork/nft-did-resolver.git"
+    "url": "git://github.com/flyingnobita/safe-did-resolver.git"
   },
   "license": "(Apache-2.0 OR MIT)",
   "main": "lib/index.js",
@@ -38,19 +37,13 @@
     "@ceramicnetwork/common": "^1.1.0",
     "@ceramicnetwork/stream-caip10-link": "^1.0.7",
     "@gnosis.pm/safe-core-sdk": "^0.3.1",
-    "bignumber.js": "^9.0.1",
     "caip": "^1.0.0",
-    "cross-fetch": "^3.1.4",
-    "json-to-graphql-query": "^2.1.0",
-    "merge-options": "^3.0.4",
-    "tslib": "^2.3.0",
-    "uint8arrays": "^2.1.8"
+    "tslib": "^2.3.1"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",
     "@babel/preset-env": "^7.14.8",
     "@babel/preset-typescript": "^7.14.5",
-    "@ceramicnetwork/blockchain-utils-linking": "^1.0.2",
     "@types/jest": "^26.0.24",
     "@types/node": "^16.4.8",
     "@typescript-eslint/eslint-plugin": "^4.28.5",
@@ -61,7 +54,6 @@
     "eslint-config-3box": "^0.2.0",
     "eslint-plugin-jest": "^24.4.0",
     "ethers": "^5.4.3",
-    "ganache-core": "^2.13.2",
     "jest": "^27.0.6",
     "jest-environment-ceramic": "^0.13.0",
     "jest-fetch-mock": "^3.0.3",
