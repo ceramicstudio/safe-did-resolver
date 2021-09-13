@@ -76,7 +76,10 @@
     ],
     "testMatch": [
       "**/?(*.)+(spec|test).[jt]s?(x)"
-    ]
+    ],
+    "globals": {
+      "window": {}
+    }
   },
   "prettier": "eslint-config-3box/prettier.config"
 }

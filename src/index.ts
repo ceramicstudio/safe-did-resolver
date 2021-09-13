@@ -9,11 +9,10 @@ import type {
 } from 'did-resolver'
 import type { CeramicApi } from '@ceramicnetwork/common'
 import { Caip10Link } from '@ceramicnetwork/stream-caip10-link'
-import { ChainId, AccountId } from 'caip'
+import { AccountId } from 'caip'
 import { DIDDocumentMetadata } from 'did-resolver'
-import { blockAtTime, isWithinLastBlock } from './subgraph-utils'
-import merge from 'merge-options'
-import { getSafeOwners } from './gnosis-safe'
+import Safe, { EthersAdapter } from '@gnosis.pm/safe-core-sdk'
+import { ethers } from 'ethers'
 
 const DID_LD_JSON = 'application/did+ld+json'
 const DID_JSON = 'application/did+json'
@@ -31,29 +30,8 @@ export function didToCaip(id: string): AccountId {
  * Gets the owners of the safe from Gnosis Safe
  * @param accountId safe address
  */
-async function accountIdToAccount(
-  accountId: AccountId,
-  timestamp: number | undefined,
-  chains: Record<string, ChainConfig | undefined>
-): Promise<AccountId[]> {
-  const assetChainId = accountId.chainId.toString()
-  const chain = chains[assetChainId]
-  if (!chain) {
-    throw new Error(`No chain configuration for ${assetChainId}`)
-  }
-
-  // we want to query what block is at the timestamp IFF it is an (older) existing timestamp
-  let queryBlock = 0
-  if (timestamp && !isWithinLastBlock(timestamp, chain.skew)) {
-    queryBlock = await blockAtTime(timestamp, chain.blocks)
-  }
-
+async function accountIdToAccount(accountId: AccountId): Promise<AccountId[]> {
   let owners: string[]
-  let ercSubgraphUrls = undefined
-
-  if (chains && chains[assetChainId]) {
-    ercSubgraphUrls = chains[assetChainId].assets
-  }
 
   if (accountId.chainId.namespace === 'eip155') {
     owners = await getSafeOwners(accountId.address)
@@ -79,7 +57,6 @@ async function accountIdToAccount(
  */
 async function accountsToDids(
   accounts: AccountId[],
-  timestamp: number,
   ceramic: CeramicApi
 ): Promise<string[] | undefined> {
   const controllers: string[] = []
@@ -117,39 +94,12 @@ function wrapDocument(did: string, accounts: AccountId[], controllers?: string[]
   return doc
 }
 
-/**
- * Gets the unix timestamp from the `versionTime` parameter.
- * @param query
- */
-function getVersionTime(query = ''): number {
-  const versionTime = query.split('&').find((e) => e.includes('versionTime'))
-  if (versionTime) {
-    return Math.floor(new Date(versionTime.split('=')[1]).getTime() / 1000)
-  }
-  return 0 // 0 is falsey
-}
-
 function validateResolverConfig(config: Partial<SafeResolverConfig>) {
   if (!config) {
     throw new Error(`Missing safe-did-resolver config`)
   }
   if (!config.ceramic) {
     throw new Error('Missing ceramic client in safe-did-resolver config')
-  }
-  const chains = config.chains
-  if (!chains) {
-    throw new Error('Missing chain parameters in safe-did-resolver config')
-  }
-  try {
-    Object.entries(config.chains).forEach(([chainId, chainConfig]) => {
-      ChainId.parse(chainId)
-      new URL(chainConfig.blocks)
-      Object.values(chainConfig.assets).forEach((subgraph) => {
-        new URL(subgraph)
-      })
-    })
-  } catch (e) {
-    throw new Error(`Invalid config for safe-did-resolver: ${e.message}`)
   }
 }
 
@@ -159,41 +109,19 @@ export type ChainConfig = {
   assets: Record<string, string>
 }
 
-/**
- * When passing in a custom subgraph url, it must conform to the same standards as
- * represented by the included ERC721 and ERC1155 subgraphs
- * Example:
- * ```
- * const customConfig = {
- *  ceramic: ceramicClient,
- *  chains: {
- *    "eip155:1": {
- *      "blocks": "https://api.thegraph.com/subgraphs/name/yyong1010/ethereumblocks",
- *      "skew": 15000, // in milliseconds
- *      "assets": {
- *        "erc1155": "https://api.thegraph.com/subgraphs/name/amxx/eip1155-subgraph",
- *        "erc721": "https://api.thegraph.com/subgraphs/name/touchain/erc721track",
- *      }
- *    }
- *  }
- * }
- * ```
- */
 export type SafeResolverConfig = {
   ceramic: CeramicApi
-  chains: Record<string, ChainConfig>
 }
 
 async function resolve(
   did: string,
   methodId: string,
-  timestamp: number,
   config: SafeResolverConfig
 ): Promise<DIDResolutionResult> {
   const accountId = didToCaip(methodId)
 
-  const owningAccounts = await accountIdToAccount(accountId, timestamp, config.chains)
-  const controllers = await accountsToDids(owningAccounts, timestamp, config.ceramic)
+  const owningAccounts = await accountIdToAccount(accountId)
+  const controllers = await accountsToDids(owningAccounts, config.ceramic)
   const metadata: DIDDocumentMetadata = {}
 
   // TODO create (if it stays in the spec)
@@ -212,38 +140,6 @@ async function resolve(
 export function caipToDid(accountId: AccountId): string {
   const id = accountId.toString().replace(/\//g, '_')
   return `did:safe:${id}`
-}
-
-function withDefaultConfig(config: Partial<SafeResolverConfig>): SafeResolverConfig {
-  const defaults = {
-    chains: {
-      'eip155:1': {
-        blocks: 'https://api.thegraph.com/subgraphs/name/yyong1010/ethereumblocks',
-        skew: 15000,
-        assets: {
-          erc721: 'https://api.thegraph.com/subgraphs/name/sunguru98/mainnet-erc721-subgraph',
-          erc1155: 'https://api.thegraph.com/subgraphs/name/sunguru98/mainnet-erc1155-subgraph',
-        },
-      },
-      'eip155:4': {
-        blocks: 'https://api.thegraph.com/subgraphs/name/mul53/rinkeby-blocks',
-        skew: 15000,
-        assets: {
-          erc721: 'https://api.thegraph.com/subgraphs/name/sunguru98/erc721-rinkeby-subgraph',
-          erc1155: 'https://api.thegraph.com/subgraphs/name/sunguru98/erc1155-rinkeby-subgraph',
-        },
-      },
-      'eip155:137': {
-        blocks: 'https://api.thegraph.com/subgraphs/name/matthewlilley/polygon-blocks',
-        skew: 2200,
-        assets: {
-          erc721: 'https://api.thegraph.com/subgraphs/name/yellow-heart/maticsubgraph',
-          erc1155: 'https://api.thegraph.com/subgraphs/name/tranchien2002/eip1155-matic',
-        },
-      },
-    },
-  }
-  return merge.bind({ ignoreUndefined: true })(defaults, config)
 }
 
 /**
@@ -275,11 +171,46 @@ export function createSafeDidUrl(params: SafeDidUrlParams): string {
   )
 }
 
+/**
+ * Create a safe instance from the safe address
+ * @param safeAddress - address from an existing Gnosis Safe
+ */
+async function getSafe(safeAddress: string): Promise<Safe> {
+  const web3Provider = (window as any).ethereum
+  const provider = new ethers.providers.Web3Provider(web3Provider)
+  const owner1 = provider.getSigner(0)
+  const ethAdapterOwner = new EthersAdapter({
+    ethers,
+    signer: owner1,
+  })
+
+  const safe = await Safe.create({
+    ethAdapter: ethAdapterOwner,
+    safeAddress,
+  })
+
+  return safe
+}
+
+/**
+ * Get the owners of a Gnosis Safe
+ * @param safeAddress - address from an existing Gnosis Safe
+ * @param safe - a Safe instance
+ */
+export async function getSafeOwners(safeAddress: string, safe?: Safe): Promise<string[]> {
+  if (!safe) {
+    safe = await getSafe(safeAddress)
+  }
+
+  const owners = await safe.getOwners()
+  // TODO check each owners if it is another safe, then do recursive getOwners()
+  return owners
+}
+
 export default {
   getResolver: (
     config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi }>
   ): ResolverRegistry => {
-    config = withDefaultConfig(config)
     validateResolverConfig(config)
     return {
       safe: async (
@@ -290,8 +221,7 @@ export default {
       ): Promise<DIDResolutionResult> => {
         const contentType = options.accept || DID_JSON
         try {
-          const timestamp = getVersionTime(parsed.query)
-          const didResult = await resolve(did, parsed.id, timestamp, config as SafeResolverConfig)
+          const didResult = await resolve(did, parsed.id, config as SafeResolverConfig)
 
           if (contentType === DID_LD_JSON) {
             didResult.didDocument['@context'] = 'https://w3id.org/did/v1'
