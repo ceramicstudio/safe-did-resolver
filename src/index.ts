@@ -9,9 +9,10 @@ import type {
 } from 'did-resolver'
 import type { CeramicApi } from '@ceramicnetwork/common'
 import { Caip10Link } from '@ceramicnetwork/stream-caip10-link'
-import { AccountId } from 'caip'
+import { ChainId, AccountId } from 'caip'
 import { DIDDocumentMetadata } from 'did-resolver'
-import Safe, { EthAdapter } from '@gnosis.pm/safe-core-sdk'
+import { getSafeOwners } from './subgraph-utils'
+import merge from 'merge-options'
 
 const DID_LD_JSON = 'application/did+ld+json'
 const DID_JSON = 'application/did+json'
@@ -31,12 +32,20 @@ export function didToCaip(id: string): AccountId {
  */
 async function accountIdToAccount(
   accountId: AccountId,
-  ethAdapter: EthAdapter
+  chains: Record<string, ChainConfig | undefined>
 ): Promise<AccountId[]> {
   let owners: string[]
+  let gnosisSafeSubgraphUrl = undefined
 
   if (accountId.chainId.namespace === 'eip155') {
-    owners = await getSafeOwners(accountId.address, ethAdapter)
+    if (chains && chains[accountId.chainId.toString()]) {
+      gnosisSafeSubgraphUrl = chains[accountId.chainId.toString()].gnosisSafe
+      owners = await getSafeOwners(accountId.address, gnosisSafeSubgraphUrl)
+    } else {
+      throw new Error(
+        `eip155 reference (Chain ID) not supoprted. Given: ${accountId.chainId.reference}`
+      )
+    }
   } else {
     throw new Error(
       `Only eip155 namespace is currently supported. Given: ${accountId.chainId.namespace}`
@@ -103,20 +112,30 @@ function validateResolverConfig(config: Partial<SafeResolverConfig>) {
   if (!config.ceramic) {
     throw new Error('Missing ceramic client in safe-did-resolver config')
   }
-  if (!config.ethAdapter) {
-    throw new Error('Missing ethAdapter in safe-did-resolver config')
+  const chains = config.chains
+  if (!chains) {
+    throw new Error('Missing chain parameters in safe-did-resolver config')
+  }
+  try {
+    Object.entries(config.chains).forEach(([chainId, chainConfig]) => {
+      ChainId.parse(chainId)
+      new URL(chainConfig.blocks)
+      new URL(chainConfig.gnosisSafe)
+    })
+  } catch (e) {
+    throw new Error(`Invalid config for safe-did-resolver: ${e}`)
   }
 }
 
 export type ChainConfig = {
   blocks: string
   skew: number
-  assets: Record<string, string>
+  gnosisSafe: string
 }
 
 export type SafeResolverConfig = {
   ceramic: CeramicApi
-  ethAdapter: EthAdapter
+  chains: Record<string, ChainConfig>
 }
 
 async function resolve(
@@ -124,9 +143,9 @@ async function resolve(
   methodId: string,
   config: SafeResolverConfig
 ): Promise<DIDResolutionResult> {
-  const accountId = didToCaip(methodId)
+  const accountId = didToCaip(methodId.toLowerCase())
 
-  const owningAccounts = await accountIdToAccount(accountId, config.ethAdapter)
+  const owningAccounts = await accountIdToAccount(accountId, config.chains)
   const controllers = await accountsToDids(owningAccounts, config.ceramic)
   const metadata: DIDDocumentMetadata = {}
 
@@ -146,6 +165,32 @@ async function resolve(
 export function caipToDid(accountId: AccountId): string {
   const id = accountId.toString().replace(/\//g, '_')
   return `did:safe:${id}`
+}
+
+function withDefaultConfig(config: Partial<SafeResolverConfig>): SafeResolverConfig {
+  const defaults = {
+    chains: {
+      // Ethereum Mainnet
+      'eip155:1': {
+        blocks: 'https://api.thegraph.com/subgraphs/name/blocklytics/ethereum-blocks',
+        skew: 15000,
+        gnosisSafe: 'https://api.thegraph.com/subgraphs/name/gjeanmart/gnosis-safe-mainnet',
+      },
+      // Ethereum Ropsten
+      'eip155:3': {
+        blocks: 'https://api.thegraph.com/subgraphs/name/yyong1010/ethereumblocks',
+        skew: 15000,
+        gnosisSafe: 'https://api.thegraph.com/subgraphs/name/gjeanmart/gnosis-safe-ropsten',
+      },
+      // Ethereum Rinkeby
+      'eip155:4': {
+        blocks: 'https://api.thegraph.com/subgraphs/name/billjhlee/rinkeby-blocks',
+        skew: 15000,
+        gnosisSafe: 'https://api.thegraph.com/subgraphs/name/radicle-dev/gnosis-safe-rinkeby',
+      },
+    },
+  }
+  return merge.bind({ ignoreUndefined: true })(defaults, config)
 }
 
 /**
@@ -177,27 +222,11 @@ export function createSafeDidUrl(params: SafeDidUrlParams): string {
   )
 }
 
-/**
- * Get the owners of a Gnosis Safe
- * @param safeAddress - address from an existing Gnosis Safe
- * @param ethAdapter - instance of EthAdapter for Gnosis Safe creation
- */
-export async function getSafeOwners(
-  safeAddress: string,
-  ethAdapter: EthAdapter
-): Promise<string[]> {
-  const safe = await Safe.create({
-    ethAdapter,
-    safeAddress,
-  })
-
-  return await safe.getOwners()
-}
-
 export default {
   getResolver: (
-    config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi; ethAdapter: EthAdapter }>
+    config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi }>
   ): ResolverRegistry => {
+    config = withDefaultConfig(config)
     validateResolverConfig(config)
     return {
       safe: async (
