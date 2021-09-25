@@ -11,7 +11,7 @@ import type { CeramicApi } from '@ceramicnetwork/common'
 import { Caip10Link } from '@ceramicnetwork/stream-caip10-link'
 import { ChainId, AccountId } from 'caip'
 import { DIDDocumentMetadata } from 'did-resolver'
-import { getSafeOwners } from './subgraph-utils'
+import { blockAtTime, getSafeOwners, isWithinLastBlock } from './subgraph-utils'
 import merge from 'merge-options'
 
 const DID_LD_JSON = 'application/did+ld+json'
@@ -32,20 +32,30 @@ export function didToCaip(id: string): AccountId {
  */
 async function accountIdToAccount(
   accountId: AccountId,
+  timestamp: number | undefined,
   chains: Record<string, ChainConfig | undefined>
 ): Promise<AccountId[]> {
-  let owners: string[]
+  const accountChainId = accountId.chainId.toString()
   let gnosisSafeSubgraphUrl = undefined
+  let chain = undefined
+
+  if (chains && chains[accountChainId]) {
+    chain = chains[accountChainId]
+    gnosisSafeSubgraphUrl = chains[accountChainId].gnosisSafe
+  } else {
+    throw new Error(`No chain configuration for ${accountChainId}`)
+  }
+
+  // we want to query what block is at the timestamp IFF it is an (older) existing timestamp
+  let queryBlock = 0
+  if (timestamp && !isWithinLastBlock(timestamp, chain.skew)) {
+    queryBlock = await blockAtTime(timestamp, chain.blocks)
+  }
+
+  let owners: string[]
 
   if (accountId.chainId.namespace === 'eip155') {
-    if (chains && chains[accountId.chainId.toString()]) {
-      gnosisSafeSubgraphUrl = chains[accountId.chainId.toString()].gnosisSafe
-      owners = await getSafeOwners(accountId.address, gnosisSafeSubgraphUrl)
-    } else {
-      throw new Error(
-        `eip155 reference (Chain ID) not supoprted. Given: ${accountId.chainId.reference}`
-      )
-    }
+    owners = await getSafeOwners(accountId.address, queryBlock, gnosisSafeSubgraphUrl)
   } else {
     throw new Error(
       `Only eip155 namespace is currently supported. Given: ${accountId.chainId.namespace}`
@@ -105,6 +115,18 @@ function wrapDocument(did: string, accounts: AccountId[], controllers?: string[]
   return doc
 }
 
+/**
+ * Gets the unix timestamp from the `versionTime` parameter.
+ * @param query
+ */
+function getVersionTime(query = ''): number {
+  const versionTime = query.split('&').find((e) => e.includes('versionTime'))
+  if (versionTime) {
+    return Math.floor(new Date(versionTime.split('=')[1]).getTime() / 1000)
+  }
+  return 0 // 0 is falsey
+}
+
 function validateResolverConfig(config: Partial<SafeResolverConfig>) {
   if (!config) {
     throw new Error(`Missing safe-did-resolver config`)
@@ -123,7 +145,7 @@ function validateResolverConfig(config: Partial<SafeResolverConfig>) {
       new URL(chainConfig.gnosisSafe)
     })
   } catch (e) {
-    throw new Error(`Invalid config for safe-did-resolver: ${e}`)
+    throw new Error(`Invalid config for safe-did-resolver: ${e.message}`)
   }
 }
 
@@ -133,6 +155,24 @@ export type ChainConfig = {
   gnosisSafe: string
 }
 
+/**
+ * When passing in a custom subgraph url, it must conform to the same standards as
+ * represented by the included Gnosis Safe subgraphs
+ * Example:
+ * ```
+ * const customConfig = {
+ *  ceramic: ceramicClient,
+ *  chains: {
+ *     // Ethereum Mainnet
+ *     'eip155:1': {
+ *       blocks: 'https://api.thegraph.com/subgraphs/name/blocklytics/ethereum-blocks',
+ *       skew: 15000,
+ *       gnosisSafe: 'https://api.thegraph.com/subgraphs/name/gjeanmart/gnosis-safe-mainnet',
+ *     },
+ *  }
+ * }
+ * ```
+ */
 export type SafeResolverConfig = {
   ceramic: CeramicApi
   chains: Record<string, ChainConfig>
@@ -141,11 +181,12 @@ export type SafeResolverConfig = {
 async function resolve(
   did: string,
   methodId: string,
+  timestamp: number,
   config: SafeResolverConfig
 ): Promise<DIDResolutionResult> {
   const accountId = didToCaip(methodId.toLowerCase())
 
-  const owningAccounts = await accountIdToAccount(accountId, config.chains)
+  const owningAccounts = await accountIdToAccount(accountId, timestamp, config.chains)
   const controllers = await accountsToDids(owningAccounts, config.ceramic)
   const metadata: DIDDocumentMetadata = {}
 
@@ -162,9 +203,13 @@ async function resolve(
  * Convert AccountId to did:safe URL
  * @param accountId - Safe Account
  */
-export function caipToDid(accountId: AccountId): string {
+export function caipToDid(accountId: AccountId, timestamp?: number): string {
+  const query = timestamp
+    ? `?versionTime=${new Date(timestamp * 1000).toISOString().split('.')[0] + 'Z'}`
+    : ''
+
   const id = accountId.toString().replace(/\//g, '_')
-  return `did:safe:${id}`
+  return `did:safe:${id}${query}`
 }
 
 function withDefaultConfig(config: Partial<SafeResolverConfig>): SafeResolverConfig {
@@ -205,6 +250,10 @@ export type SafeDidUrlParams = {
    * Safe contract address
    */
   address: string
+  /**
+   * Unix timestamp for `versionTime` DID URL query param. Helps to find Gnosis Safe owners at particular point in time.
+   */
+  timestamp?: number
 }
 
 /**
@@ -218,7 +267,8 @@ export function createSafeDidUrl(params: SafeDidUrlParams): string {
     new AccountId({
       chainId: params.chainId,
       address: params.address,
-    })
+    }),
+    params.timestamp
   )
 }
 
@@ -237,7 +287,8 @@ export default {
       ): Promise<DIDResolutionResult> => {
         const contentType = options.accept || DID_JSON
         try {
-          const didResult = await resolve(did, parsed.id, config as SafeResolverConfig)
+          const timestamp = getVersionTime(parsed.query)
+          const didResult = await resolve(did, parsed.id, timestamp, config as SafeResolverConfig)
 
           if (contentType === DID_LD_JSON) {
             didResult.didDocument['@context'] = 'https://w3id.org/did/v1'

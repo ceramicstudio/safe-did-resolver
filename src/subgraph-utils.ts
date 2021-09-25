@@ -78,12 +78,16 @@ type GnosisSafeDataResponse = {
  * Get the owners of a Gnosis Safe
  * @param safeAddress - address from an existing Gnosis Safe
  */
-export async function getSafeOwners(safeAddress: string, queryUrl: string): Promise<string[]> {
+export async function getSafeOwners(
+  safeAddress: string,
+  blockNum: number,
+  queryUrl: string
+): Promise<string[]> {
   const query = {
     wallet: {
       __args: {
         id: safeAddress,
-        // block: blockNum ? { number: blockNum } : null,
+        block: blockNum ? { number: blockNum } : null,
       },
       owners: {
         id: true,
@@ -92,11 +96,10 @@ export async function getSafeOwners(safeAddress: string, queryUrl: string): Prom
   }
 
   const queryData = (await fetchQueryData(queryUrl, query)) as GnosisSafeDataResponse
-
   if (!queryData?.wallet) {
     throw new Error('Missing data from subgraph query')
-  } else if (queryData.wallet.owners.length === 0) {
-    throw new Error(`No owner found for Gnosis Safe Address: ${safeAddress}`)
+  } else if (!('owners' in queryData.wallet)) {
+    throw new Error(`No owner found for Gnosis Safe address: ${safeAddress}`)
   }
 
   return queryData.wallet.owners
