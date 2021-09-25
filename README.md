@@ -22,20 +22,28 @@ import Ceramic from '@ceramicnetwork/http-client'
 
 const ceramic = new Ceramic() // connects to localhost:7007 by default
 
-// Create a EthAdapter (can use Ethers or Web3)
-// See Gnosis Safe safe-core-sdk for details (https://github.com/gnosis/safe-core-sdk/tree/main/packages/safe-core-sdk#1-set-up-the-sdk-using-ethers-or-web3)
-// Below example uses Ethers
-const web3Provider = window.ethereum
-const provider = new ethers.providers.Web3Provider(web3Provider)
-const owner1 = provider.getSigner(0)
-const ethAdapter = new EthersAdapter({
-  ethers,
-  signer: owner1,
-})
-
-const config = {
+const config: NftResolverConfig = {
   ceramic,
-  ethAdapter,
+  chains: {
+    // Ethereum Mainnet
+    'eip155:1': {
+      blocks: 'https://api.thegraph.com/subgraphs/name/blocklytics/ethereum-blocks',
+      skew: 15000,
+      gnosisSafe: 'https://api.thegraph.com/subgraphs/name/gjeanmart/gnosis-safe-mainnet',
+    },
+    // Ethereum Ropsten
+    'eip155:3': {
+      blocks: 'https://api.thegraph.com/subgraphs/name/yyong1010/ethereumblocks',
+      skew: 15000,
+      gnosisSafe: 'https://api.thegraph.com/subgraphs/name/gjeanmart/gnosis-safe-ropsten',
+    },
+    // Ethereum Rinkeby
+    'eip155:4': {
+      blocks: 'https://api.thegraph.com/subgraphs/name/billjhlee/rinkeby-blocks',
+      skew: 15000,
+      gnosisSafe: 'https://api.thegraph.com/subgraphs/name/radicle-dev/gnosis-safe-rinkeby',
+    },
+  },
 }
 
 // getResolver will return an object with a key/value pair of { 'safe': resolver }
@@ -44,7 +52,7 @@ const safeResolver = SafeResolver.getResolver(config)
 const didResolver = Resolver(safeResolver)
 
 const safeResult = await didSafeResolver.resolve(
-  'did:safe:eip155:4:0x2Cb8c8dd6Cefb413884612DC16d187aBDcB64A52'
+  'did:safe:eip155:1:0x00044c87ddc54536ee05047c6f4f6f831aba988b'
 )
 console.log(safeResult)
 ```
@@ -100,11 +108,6 @@ const didUrl = createSafeDidUrl({
 // DID URL -> CAIP
 const accountId = didToCaip(didUrl) // eip155:1/erc721:0x1234567891234567891234567891234596351156/1
 ```
-
-## ToDos
-
-- [ ] Support for historical owners retrieval
-      ~~- [ ] Support for recursive Safe owners lookup~~
 
 ## License
 
