@@ -1,5 +1,5 @@
 {
-  "name": "safe-did-resolver",
+  "name": "did-safe-resolver",
   "version": "0.0.4",
   "description": "DID Resolver for the Safe method",
   "keywords": [
@@ -59,7 +59,6 @@
     "jest": "^27.0.6",
     "jest-environment-ceramic": "^0.13.0",
     "jest-fetch-mock": "^3.0.3",
-    "lru_map": "^0.4.1",
     "prettier": "^2.3.2"
   },
   "jest": {
