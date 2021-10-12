@@ -1,5 +1,5 @@
 {
-  "name": "did-safe-resolver",
+  "name": "safe-did-resolver",
   "version": "0.0.4",
   "description": "DID Resolver for the Safe method",
   "keywords": [
