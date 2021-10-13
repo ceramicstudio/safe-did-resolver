@@ -1,6 +1,6 @@
 {
   "name": "safe-did-resolver",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "DID Resolver for the Safe method",
   "keywords": [
     "Ceramic",
@@ -12,10 +12,10 @@
   ],
   "author": "FlyingNobita <iam@flyingnobita.com>",
   "contributors": [],
-  "homepage": "https://github.com/flyingnobita/safe-did-resolver",
+  "homepage": "https://github.com/ceramicstudio/safe-did-resolver",
   "repository": {
     "type": "git",
-    "url": "git://github.com/flyingnobita/safe-did-resolver.git"
+    "url": "git://github.com/ceramicstudio/safe-did-resolver.git"
   },
   "license": "(Apache-2.0 OR MIT)",
   "main": "lib/index.js",
