@@ -43,8 +43,7 @@
     "@ceramicnetwork/common": "^1.1.0",
     "@ceramicnetwork/stream-caip10-link": "^1.0.7",
     "caip": "^1.0.0",
-    "json-to-graphql-query": "^2.1.0",
-    "tslib": "^2.3.1"
+    "json-to-graphql-query": "^2.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",

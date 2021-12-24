@@ -15,7 +15,6 @@
     "skipLibCheck": true,
     "noUnusedLocals": true,
     "noImplicitReturns": true,
-    "importHelpers": true,
     "resolveJsonModule": false
   },
   "include": ["./src/**/*"],
