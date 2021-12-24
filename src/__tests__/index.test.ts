@@ -2,14 +2,20 @@
  * @jest-environment ceramic
  */
 
-import SafeResolver, { caipToDid, createSafeDidUrl, didToCaip, SafeResolverConfig } from '../index'
+import {
+  getResolver,
+  caipToDid,
+  createSafeDidUrl,
+  didToCaip,
+  SafeResolverConfig,
+} from '../index.js'
 import { Resolver, ResolverRegistry } from 'did-resolver'
 import { EthereumAuthProvider } from '@ceramicnetwork/blockchain-utils-linking'
 import { Caip10Link } from '@ceramicnetwork/stream-caip10-link'
 import * as u8a from 'uint8arrays'
 import fetchMock from 'jest-fetch-mock'
 import { ethers } from 'ethers'
-import { SafeDidVectorBuilder, SafeDidVector } from './safe-did-vector'
+import { SafeDidVectorBuilder, SafeDidVector } from './safe-did-vector.js'
 import ganache from 'ganache-core'
 import { AccountId } from 'caip'
 
@@ -60,7 +66,7 @@ describe('Gnosis Safe DID Resolver (TheGraph)', () => {
       },
     }
 
-    safeResolver = SafeResolver.getResolver(config)
+    safeResolver = getResolver(config)
     resolver = new Resolver(safeResolver)
 
     // Set up the EthAuthProvider
@@ -92,7 +98,7 @@ describe('Gnosis Safe DID Resolver (TheGraph)', () => {
         },
       }
 
-      expect(() => SafeResolver.getResolver(customConfig)).not.toThrow()
+      expect(() => getResolver(customConfig)).not.toThrow()
     })
 
     it('throws when Gnosis Safe Subgraph URL is not a url', () => {
@@ -108,7 +114,7 @@ describe('Gnosis Safe DID Resolver (TheGraph)', () => {
         },
       }
 
-      expect(() => SafeResolver.getResolver(customConfig)).toThrowError(
+      expect(() => getResolver(customConfig)).toThrowError(
         `Invalid config for safe-did-resolver: Invalid URL`
       )
     })
@@ -124,7 +130,7 @@ describe('Gnosis Safe DID Resolver (TheGraph)', () => {
           },
         },
       }
-      expect(() => SafeResolver.getResolver(customConfig)).toThrowError(
+      expect(() => getResolver(customConfig)).toThrowError(
         'Invalid config for safe-did-resolver: Invalid chainId provided: eip155.1'
       )
     })
@@ -212,7 +218,7 @@ describe('Gnosis Safe DID Resolver (TheGraph)', () => {
         },
       }
 
-      const customResolver = new Resolver(SafeResolver.getResolver(customConfig))
+      const customResolver = new Resolver(getResolver(customConfig))
 
       const safeVector = safeVectorBuilder
         .setSafeContract(safeContractMainnet1)

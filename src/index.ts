@@ -11,7 +11,7 @@ import type { CeramicApi } from '@ceramicnetwork/common'
 import { Caip10Link } from '@ceramicnetwork/stream-caip10-link'
 import { ChainId, AccountId } from 'caip'
 import { DIDDocumentMetadata } from 'did-resolver'
-import { blockAtTime, getSafeOwners, isWithinLastBlock } from './subgraph-utils'
+import { blockAtTime, getSafeOwners, isWithinLastBlock } from './subgraph-utils.js'
 import merge from 'merge-options'
 
 const DID_LD_JSON = 'application/did+ld+json'
@@ -272,45 +272,43 @@ export function createSafeDidUrl(params: SafeDidUrlParams): string {
   )
 }
 
-export default {
-  getResolver: (
-    config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi }>
-  ): ResolverRegistry => {
-    config = withDefaultConfig(config)
-    validateResolverConfig(config)
-    return {
-      safe: async (
-        did: string,
-        parsed: ParsedDID,
-        resolver: Resolver,
-        options: DIDResolutionOptions
-      ): Promise<DIDResolutionResult> => {
-        const contentType = options.accept || DID_JSON
-        try {
-          const timestamp = getVersionTime(parsed.query)
-          const didResult = await resolve(did, parsed.id, timestamp, config as SafeResolverConfig)
+export function getResolver(
+  config: Partial<SafeResolverConfig> & Required<{ ceramic: CeramicApi }>
+): ResolverRegistry {
+  config = withDefaultConfig(config)
+  validateResolverConfig(config)
+  return {
+    safe: async (
+      did: string,
+      parsed: ParsedDID,
+      resolver: Resolver,
+      options: DIDResolutionOptions
+    ): Promise<DIDResolutionResult> => {
+      const contentType = options.accept || DID_JSON
+      try {
+        const timestamp = getVersionTime(parsed.query)
+        const didResult = await resolve(did, parsed.id, timestamp, config as SafeResolverConfig)
 
-          if (contentType === DID_LD_JSON) {
-            didResult.didDocument['@context'] = 'https://w3id.org/did/v1'
-            didResult.didResolutionMetadata.contentType = DID_LD_JSON
-          } else if (contentType !== DID_JSON) {
-            didResult.didDocument = null
-            didResult.didDocumentMetadata = {}
-            delete didResult.didResolutionMetadata.contentType
-            didResult.didResolutionMetadata.error = 'representationNotSupported'
-          }
-          return didResult
-        } catch (e) {
-          return {
-            didResolutionMetadata: {
-              error: 'invalidDid',
-              message: e.toString(),
-            },
-            didDocument: null,
-            didDocumentMetadata: {},
-          }
+        if (contentType === DID_LD_JSON) {
+          didResult.didDocument['@context'] = 'https://w3id.org/did/v1'
+          didResult.didResolutionMetadata.contentType = DID_LD_JSON
+        } else if (contentType !== DID_JSON) {
+          didResult.didDocument = null
+          didResult.didDocumentMetadata = {}
+          delete didResult.didResolutionMetadata.contentType
+          didResult.didResolutionMetadata.error = 'representationNotSupported'
         }
-      },
-    }
-  },
+        return didResult
+      } catch (e) {
+        return {
+          didResolutionMetadata: {
+            error: 'invalidDid',
+            message: e.toString(),
+          },
+          didDocument: null,
+          didDocumentMetadata: {},
+        }
+      }
+    },
+  }
 }

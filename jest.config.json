@@ -1,0 +1,16 @@
+{
+  "resolver": "jest-resolver-enhanced",
+  "setupFiles": [
+    "./jest.setup.ts"
+  ],
+  "extensionsToTreatAsEsm": [".ts"],
+  "testMatch": ["**/?(*.)+(spec|test).[jt]s?(x)"],
+  "globals": {
+    "ts-jest": {
+      "useESM": true
+    }
+  },
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  }
+}

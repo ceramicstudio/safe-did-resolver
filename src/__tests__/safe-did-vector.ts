@@ -1,4 +1,4 @@
-import { DIDResolutionResult, VerificationMethod } from 'did-resolver'
+import type { DIDResolutionResult, VerificationMethod } from 'did-resolver'
 
 export class SafeDidVector {
   safeDid: string
