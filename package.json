@@ -61,7 +61,7 @@
     "eslint-plugin-jest": "^25.3.0",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^6.0.0",
-    "ethers": "^5.4.7",
+    "ethers": "~5.4.7",
     "ganache-core": "^2.13.2",
     "jest": "^27.4.5",
     "jest-environment-ceramic": "^0.14.0",
