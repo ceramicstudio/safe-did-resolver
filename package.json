@@ -40,8 +40,8 @@
     "clean": "rm -rf ./lib"
   },
   "dependencies": {
-    "@ceramicnetwork/common": "^1.1.0",
-    "@ceramicnetwork/stream-caip10-link": "^1.0.7",
+    "@ceramicnetwork/common": "^2.0.0-alpha.0",
+    "@ceramicnetwork/stream-caip10-link": "^2.0.0-alpha.0",
     "caip": "^1.0.0",
     "json-to-graphql-query": "^2.2.0"
   },
