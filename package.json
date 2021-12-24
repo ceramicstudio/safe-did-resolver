@@ -43,7 +43,7 @@
     "@ceramicnetwork/common": "^1.1.0",
     "@ceramicnetwork/stream-caip10-link": "^1.0.7",
     "caip": "^1.0.0",
-    "json-to-graphql-query": "^2.1.0"
+    "json-to-graphql-query": "^2.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",
@@ -54,7 +54,7 @@
     "@typescript-eslint/eslint-plugin": "^4.28.5",
     "@typescript-eslint/parser": "^4.28.5",
     "babel-jest": "^27.0.6",
-    "did-resolver": "^3.0.1",
+    "did-resolver": "^3.1.5",
     "eslint": "^7.32.0",
     "eslint-config-3box": "^0.2.0",
     "eslint-plugin-jest": "^24.4.0",
@@ -64,9 +64,9 @@
     "jest-environment-ceramic": "^0.13.0",
     "jest-fetch-mock": "^3.0.3",
     "jest-resolver-enhanced": "^1.0.1",
-    "prettier": "^2.3.2",
+    "prettier": "^2.5.1",
     "tslib": "^2.3.1",
-    "typescript": "^4.4.3"
+    "typescript": "^4.5.4"
   },
   "prettier": "eslint-config-3box/prettier.config"
 }
