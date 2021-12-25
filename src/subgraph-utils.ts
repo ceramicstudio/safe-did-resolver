@@ -1,7 +1,7 @@
 import fetch from 'cross-fetch'
 import { jsonToGraphQLQuery } from 'json-to-graphql-query'
 
-export const fetchQueryData = async (queryUrl: string, query: unknown): Promise<any> => {
+export async function fetchQueryData<T = unknown>(queryUrl: string, query: unknown): Promise<T> {
   const fetchOpts = {
     method: 'POST',
     headers: {
@@ -50,7 +50,7 @@ export const blockAtTime = async (timestamp: number, blockQueryUrl: string): Pro
     },
   }
 
-  const queryData = (await fetchQueryData(blockQueryUrl, query)) as BlockQueryResponse
+  const queryData = await fetchQueryData<BlockQueryResponse>(blockQueryUrl, query)
 
   if (!queryData?.blocks) {
     throw new Error('Missing data from subgraph query')
@@ -95,7 +95,7 @@ export async function getSafeOwners(
     },
   }
 
-  const queryData = (await fetchQueryData(queryUrl, query)) as GnosisSafeDataResponse
+  const queryData = await fetchQueryData<GnosisSafeDataResponse>(queryUrl, query)
   if (!queryData?.wallet) {
     throw new Error('Missing data from subgraph query')
   } else if (!('owners' in queryData.wallet)) {
