@@ -32,7 +32,7 @@
     ".": "./lib/index.js"
   },
   "scripts": {
-    "test": "./node_modules/.bin/jest --coverage",
+    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest --coverage",
     "build": "./node_modules/.bin/tsc -p tsconfig.json",
     "prepublishOnly": "npm run build",
     "prebuild": "npm run clean",
@@ -40,8 +40,8 @@
     "clean": "rm -rf ./lib"
   },
   "dependencies": {
-    "@ceramicnetwork/common": "^2.0.0-alpha.0",
-    "@ceramicnetwork/stream-caip10-link": "^2.0.0-alpha.0",
+    "@ceramicnetwork/common": "^2.0.0-rc.0",
+    "@ceramicnetwork/stream-caip10-link": "^2.0.0-rc.0",
     "caip": "^1.0.0",
     "json-to-graphql-query": "^2.2.0"
   },
@@ -50,7 +50,6 @@
     "@babel/preset-env": "^7.16.5",
     "@babel/preset-typescript": "^7.16.5",
     "@types/jest": "^27.0.3",
-    "@types/node": "^16.11.17",
     "@typescript-eslint/eslint-plugin": "^5.8.0",
     "@typescript-eslint/parser": "^5.8.0",
     "babel-jest": "^27.4.5",
@@ -58,13 +57,13 @@
     "eslint": "^8.5.0",
     "eslint-config-3box": "^0.4.0",
     "eslint-plugin-import": "^2.25.3",
-    "eslint-plugin-jest": "^25.3.0",
+    "eslint-plugin-jest": "^26.1.4",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^6.0.0",
     "ethers": "~5.4.7",
     "ganache-core": "^2.13.2",
     "jest": "^27.4.5",
-    "jest-environment-ceramic": "^0.14.0",
+    "jest-environment-ceramic": "^0.15.0-rc.0",
     "jest-fetch-mock": "^3.0.3",
     "jest-resolver-enhanced": "^1.0.1",
     "prettier": "^2.5.1",
