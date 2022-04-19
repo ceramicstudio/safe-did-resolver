@@ -1,6 +1,6 @@
 {
   "name": "safe-did-resolver",
-  "version": "1.0.0-rc.0",
+  "version": "1.0.0",
   "description": "DID Resolver for the Safe method",
   "keywords": [
     "Ceramic",
